@@ -1,0 +1,95 @@
+// ======================================
+// DEPOTS CONFIG
+// Editează DOAR acest fișier când
+// adaugi un depozit nou.
+// ======================================
+
+const ROUTE_COLORS = {
+    "Route 1":   "#ef4444",
+    "Route 2":   "#3b82f6",
+    "Route 3":   "#22c55e",
+    "Route 4":   "#f59e0b",
+    "Route 5":   "#a855f7",
+    "Route 6":   "#92400e",
+    "Route 7":   "#06b6d4",
+    "Route 8":   "#84cc16",
+    "Route 9":   "#ec4899",
+    "Route 10":  "#f97316",
+    "Route 1&2": "#991b1b",
+    "Route 3&4": "#14532d",
+    "Unassigned": "gray",
+    "Invalid":    "black"
+};
+
+const DEPOTS = {
+
+    "LE11": {
+        id:       "LE11",
+        name:     "Leicester Depot",
+        postcode: "LE11 5GX",
+        lat:      52.7806,
+        lng:      -1.2215,
+        routes: {
+            "Route 1": ["NG1","NG2","NG3","NG4","NG5","NG12"],
+            "Route 2": ["NG6","NG7","NG8","NG9","NG10","NG11"],
+            "Route 3": ["LE2","LE3","LE6","LE9","LE19","CV13"],
+            "Route 4": ["LE1","LE4","LE5","LE7","LE8","LE13","LE14","LE15","LE16","LE18"],
+            "Route 5": ["LE11","LE12","LE65","LE67","DE12","DE73","DE74","DE24","DE23","DE22","DE21","DE1","DE3"]
+        }
+    },
+
+    "B66": {
+        id:       "B66",
+        name:     "Birmingham Depot",
+        postcode: "B66 1BT",
+        lat:      52.4906,
+        lng:      -1.9705,
+        routes: {
+            "Route 1": ["B1","B2","B3","B4","B5","B6"],
+            "Route 2": ["B7","B8","B9","B10","B11","B12"],
+            "Route 3": ["B13","B14","B15","B16","B17","B18"],
+            "Route 4": ["B19","B20","B21","B23","B24","B25"],
+            "Route 5": ["B26","B27","B28","B29","B30","B31"],
+            "Route 6": ["B32","B33","B34","B35","B36","B37"]
+        }
+    },
+
+    "LTN": {
+        id:       "LTN",
+        name:     "Luton Depot",
+        postcode: "LU1 1AA",
+        lat:      51.8787,
+        lng:      -0.4200,
+        routes: {
+            "Route 1": ["LU6","LU7","MK1","MK11","MK12","MK13","MK18","MK19","MK3","MK4","MK5","MK8","HP6","HP21","HP5","HP19","HP22","HP16","HP20","HP23","HP7"],
+            "Route 2": ["MK43","MK16","MK10","MK14","MK15","MK17","MK7","MK2","MK6","MK9","MK46","MK42","MK40","MK44","MK45","MK41","SG5","SG15","SG16"],
+            "Route 3": ["SG9","SG11","SG12","SG13","SG14","AL10","AL6","AL8","AL7","AL9","AL4","AL2","AL1","AL5","AL3","LU1","LU2","LU3","LU4","LU5","HP1","HP2","HP3","HP4","SG2","SG3","SG1","SG4","SG6"]
+        }
+    },
+
+    "CVY": {
+        id:       "CVY",
+        name:     "Coventry Depot",
+        postcode: "CV7 9RE",
+        lat:      52.42717,
+        lng:      -1.41181,
+        routes: {}
+    }
+
+};
+
+// ======================================
+// Populează dropdown-ul
+// ======================================
+
+(function populateDepotSelector() {
+    var selector = document.getElementById("depotSelector");
+    if (!selector) return;
+    selector.innerHTML = "";
+    for (var id in DEPOTS) {
+        var option = document.createElement("option");
+        option.value = id;
+        option.textContent = DEPOTS[id].name;
+        selector.appendChild(option);
+    }
+})();

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>UK Route Planner</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet/dist/leaflet.css"
+    />
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<div class="topbar">
+
+    <div class="logo">
+        JoyBuy Route Planner
+    </div>
+
+    <div class="controls">
+
+        <select id="depotSelector"></select>
+
+        <input
+            type="file"
+            id="excelFile"
+            accept=".xlsx,.xls"
+        >
+
+        <button id="addStopBtn">
+            Add Stop
+        </button>
+
+        <button id="uploadBtn">
+            Generate Routes
+        </button>
+
+        <button id="exportBtn">
+            Export Routes
+        </button>
+
+    </div>
+
+</div>
+
+
+
+<div
+    id="multiSelectBar"
+    style="
+        display:none;
+        background:white;
+        padding:12px 20px;
+        border-bottom:1px solid #ddd;
+        align-items:center;
+        gap:15px;
+    "
+>
+
+    <span
+        id="selectedCount"
+        style="
+            font-weight:bold;
+        "
+    >
+        Selected: 0
+    </span>
+
+    <select id="moveToRoute">
+    </select>
+
+    <select id="movePosition">
+
+        <option value="start">
+            Beginning
+        </option>
+
+        <option value="end" selected>
+            End
+        </option>
+
+    </select>
+
+    <button
+        onclick="moveSelectedStops()"
+    >
+        Move
+    </button>
+
+    <button
+        onclick="clearSelection()"
+    >
+        Clear
+    </button>
+
+</div>
+
+<div class="main-layout">
+
+
+    <div class="sidebar">
+
+        <h2>Routes</h2>
+
+        <div id="routeStats"></div>
+
+        <h2 style="margin-top:30px;">
+            Saved Sessions
+        </h2>
+
+        <div id="savedSessions"></div>
+
+        <button
+            id="saveSessionBtn"
+            style="
+                width:100%;
+                margin-top:12px;
+                padding:12px;
+                background:#16a34a;
+                color:white;
+                border:none;
+                border-radius:10px;
+                font-weight:bold;
+                cursor:pointer;
+            "
+        >
+            Save Current Session
+        </button>
+
+    </div>
+
+    <div id="map"></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="data/depots.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
