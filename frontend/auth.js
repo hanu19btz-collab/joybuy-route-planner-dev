@@ -48,7 +48,10 @@ function _showLogin() {
 
 function _showApp() {
     document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('appContent').style.display = 'block';
+    document.getElementById('appContent').style.display = 'flex';
+    setTimeout(() => {
+        if (typeof map !== 'undefined') map.invalidateSize();
+    }, 100);
     if (typeof renderSavedSessions === 'function') renderSavedSessions();
 }
 
