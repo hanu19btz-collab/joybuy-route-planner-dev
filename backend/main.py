@@ -1,9 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import pandas as pd
 import requests
 import io
+import os
+
+SUPABASE_URL     = "https://ixmoqsfoilnpmlpgstxm.supabase.co"
+SUPABASE_ANON    = "sb_publishable_MA_zm77TgThlb0awcaGIUg_Pm5bFw4w"
+SUPABASE_SERVICE = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 # =====================================
 # LOAD CONFIG — single source of truth
@@ -30,6 +35,126 @@ app.add_middleware(
 )
 
 POSTCODE_API = "https://api.postcodes.io/postcodes/"
+
+
+# =====================================
+# ADMIN HELPERS
+# =====================================
+
+def _service_headers():
+    return {
+        "apikey": SUPABASE_SERVICE,
+        "Authorization": f"Bearer {SUPABASE_SERVICE}",
+        "Content-Type": "application/json",
+    }
+
+def _verify_admin(authorization: str):
+    token = authorization.replace("Bearer ", "").strip()
+    r = requests.get(
+        f"{SUPABASE_URL}/auth/v1/user",
+        headers={"apikey": SUPABASE_ANON, "Authorization": f"Bearer {token}"}
+    )
+    if r.status_code != 200:
+        return None
+    user_id = r.json().get("id")
+    if not user_id:
+        return None
+    r2 = requests.get(
+        f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=role",
+        headers=_service_headers()
+    )
+    profiles = r2.json() if r2.status_code == 200 else []
+    if not profiles or profiles[0].get("role") != "admin":
+        return None
+    return user_id
+
+
+# =====================================
+# ADMIN — LIST USERS
+# =====================================
+
+@app.get("/admin/users")
+def list_users(authorization: str = Header(...)):
+    if not _verify_admin(authorization):
+        raise HTTPException(403, "Not authorized")
+    r = requests.get(
+        f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+        headers=_service_headers()
+    )
+    return r.json()
+
+
+# =====================================
+# ADMIN — CREATE USER
+# =====================================
+
+@app.post("/admin/users")
+def create_user(body: dict, authorization: str = Header(...)):
+    if not _verify_admin(authorization):
+        raise HTTPException(403, "Not authorized")
+    r = requests.post(
+        f"{SUPABASE_URL}/auth/v1/admin/users",
+        json={
+            "email": body["email"],
+            "password": body["password"],
+            "email_confirm": True,
+            "user_metadata": {
+                "depot_id": body["depot_id"],
+                "role": body["role"]
+            }
+        },
+        headers=_service_headers()
+    )
+    data = r.json()
+    if r.status_code >= 400:
+        raise HTTPException(400, data.get("msg", "Error creating user"))
+    user_id = data.get("id")
+    if user_id:
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}",
+            json={"depot_id": body["depot_id"], "role": body["role"]},
+            headers={**_service_headers(), "Prefer": "return=minimal"}
+        )
+    return data
+
+
+# =====================================
+# ADMIN — UPDATE USER
+# =====================================
+
+@app.put("/admin/users/{user_id}")
+def update_user(user_id: str, body: dict, authorization: str = Header(...)):
+    if not _verify_admin(authorization):
+        raise HTTPException(403, "Not authorized")
+    payload = {"user_metadata": {"depot_id": body["depot_id"], "role": body["role"]}}
+    if body.get("password"):
+        payload["password"] = body["password"]
+    requests.put(
+        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+        json=payload,
+        headers=_service_headers()
+    )
+    requests.patch(
+        f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}",
+        json={"depot_id": body["depot_id"], "role": body["role"]},
+        headers={**_service_headers(), "Prefer": "return=minimal"}
+    )
+    return {"success": True}
+
+
+# =====================================
+# ADMIN — DELETE USER
+# =====================================
+
+@app.delete("/admin/users/{user_id}")
+def delete_user(user_id: str, authorization: str = Header(...)):
+    if not _verify_admin(authorization):
+        raise HTTPException(403, "Not authorized")
+    r = requests.delete(
+        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+        headers=_service_headers()
+    )
+    return {"success": r.status_code == 200}
 
 
 # =====================================
