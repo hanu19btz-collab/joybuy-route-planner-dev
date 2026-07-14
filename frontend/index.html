@@ -2,129 +2,195 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UK Route Planner</title>
-
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet/dist/leaflet.css"
-    />
-
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
 
-<div class="topbar">
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="
+    display:flex;
+    position:fixed;
+    inset:0;
+    background:#0f172a;
+    z-index:9999;
+    align-items:center;
+    justify-content:center;
+">
+    <div style="
+        background:white;
+        padding:44px 40px;
+        border-radius:16px;
+        width:360px;
+        box-shadow:0 25px 60px rgba(0,0,0,0.5);
+    ">
+        <div style="font-size:22px;font-weight:800;margin-bottom:4px;text-align:center;color:#111;">
+            JoyBuy Route Planner
+        </div>
+        <div style="color:#6b7280;text-align:center;margin-bottom:28px;font-size:13px;">
+            Sign in to your depot account
+        </div>
 
-    <div class="logo">
-        JoyBuy Route Planner
-    </div>
-
-    <div class="controls">
-
-        <select id="depotSelector"></select>
-
-        <input
-            type="file"
-            id="excelFile"
-            accept=".xlsx,.xls"
+        <label style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">
+            Email
+        </label>
+        <input id="loginEmail" type="email" placeholder="depot@joybuy.com"
+            style="display:block;width:100%;padding:10px 12px;margin:5px 0 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;"
         >
 
-        <button id="addStopBtn">
-            Add Stop
-        </button>
+        <label style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">
+            Password
+        </label>
+        <input id="loginPassword" type="password" placeholder="••••••••"
+            style="display:block;width:100%;padding:10px 12px;margin:5px 0 6px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;"
+            onkeydown="if(event.key==='Enter') doLogin()"
+        >
 
-        <button id="uploadBtn">
-            Generate Routes
-        </button>
+        <div id="loginError" style="color:#dc2626;font-size:13px;min-height:20px;margin-bottom:10px;"></div>
 
-        <button id="exportBtn">
-            Export Routes
+        <button id="loginBtn" onclick="doLogin()" style="
+            width:100%;
+            padding:12px;
+            background:#4f5fe3;
+            color:white;
+            border:none;
+            border-radius:8px;
+            font-size:15px;
+            font-weight:700;
+            cursor:pointer;
+        ">
+            Sign In
         </button>
-
     </div>
-
 </div>
 
+<!-- ADMIN PANEL SIDE DRAWER -->
+<div id="adminPanel" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:8888;
+    justify-content:flex-end;
+">
+    <div style="
+        background:white;
+        width:480px;
+        height:100%;
+        overflow-y:auto;
+        padding:24px;
+        box-shadow:-4px 0 24px rgba(0,0,0,0.2);
+    ">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div style="font-size:18px;font-weight:800;">Admin Panel</div>
+            <button onclick="toggleAdminPanel()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;">&#x2715;</button>
+        </div>
 
+        <!-- Sessions -->
+        <div style="margin-bottom:28px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px;">
+                Sessions
+            </div>
 
-<div
-    id="multiSelectBar"
-    style="
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;color:#374151;font-weight:600;">Filter by depot:</label>
+                <select id="adminDepotFilter" onchange="onAdminFilterChange(this.value)"
+                    style="margin-left:8px;padding:6px 10px;border-radius:6px;border:1.5px solid #d1d5db;font-size:13px;">
+                    <option value="all">All depots</option>
+                    <option value="LE11">Leicester (LE11)</option>
+                    <option value="B66">Birmingham (B66)</option>
+                    <option value="LTN">Luton (LTN)</option>
+                    <option value="CVY">Coventry (CVY)</option>
+                </select>
+            </div>
+
+            <div id="adminSessionsList"></div>
+        </div>
+
+        <!-- Users -->
+        <div>
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px;">
+                Users
+            </div>
+            <div id="adminUsersList"></div>
+            <div style="font-size:12px;color:#9ca3af;margin-top:12px;padding:10px;background:#f9fafb;border-radius:8px;">
+                To create or edit users: Supabase dashboard &rarr; Authentication &rarr; Users
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- APP CONTENT -->
+<div id="appContent" style="display:none;">
+
+    <div class="topbar">
+        <div class="logo">JoyBuy Route Planner</div>
+        <div class="controls">
+            <select id="depotSelector"></select>
+            <input type="file" id="excelFile" accept=".xlsx,.xls">
+            <button id="addStopBtn">Add Stop</button>
+            <button id="uploadBtn">Generate Routes</button>
+            <button id="exportBtn">Export Routes</button>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-left:14px;padding-left:14px;border-left:1px solid rgba(255,255,255,0.3);">
+                <span id="userLabel" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);"></span>
+                <button id="adminPanelBtn" onclick="toggleAdminPanel()" style="
+                    display:none;
+                    padding:5px 12px;
+                    background:rgba(255,255,255,0.2);
+                    color:white;
+                    border:1px solid rgba(255,255,255,0.4);
+                    border-radius:6px;
+                    font-size:12px;
+                    font-weight:600;
+                    cursor:pointer;
+                ">
+                    Admin
+                </button>
+                <button onclick="doLogout()" style="
+                    padding:5px 12px;
+                    background:rgba(255,255,255,0.15);
+                    color:white;
+                    border:1px solid rgba(255,255,255,0.3);
+                    border-radius:6px;
+                    font-size:12px;
+                    cursor:pointer;
+                ">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="multiSelectBar" style="
         display:none;
         background:white;
         padding:12px 20px;
         border-bottom:1px solid #ddd;
         align-items:center;
         gap:15px;
-    "
->
+    ">
+        <span id="selectedCount" style="font-weight:bold;">Selected: 0</span>
+        <select id="moveToRoute"></select>
+        <select id="movePosition">
+            <option value="start">Beginning</option>
+            <option value="end" selected>End</option>
+        </select>
+        <button onclick="moveSelectedStops()">Move</button>
+        <button onclick="clearSelection()">Clear</button>
+    </div>
 
-    <span
-        id="selectedCount"
-        style="
-            font-weight:bold;
-        "
-    >
-        Selected: 0
-    </span>
-
-    <select id="moveToRoute">
-    </select>
-
-    <select id="movePosition">
-
-        <option value="start">
-            Beginning
-        </option>
-
-        <option value="end" selected>
-            End
-        </option>
-
-    </select>
-
-    <button
-        onclick="moveSelectedStops()"
-    >
-        Move
-    </button>
-
-    <button
-        onclick="clearSelection()"
-    >
-        Clear
-    </button>
-
-</div>
-
-<div class="main-layout">
-
-
-    <div class="sidebar">
-
-        <h2>Routes</h2>
-
-        <div id="routeStats"></div>
-
-        <h2 style="margin-top:30px;">
-            Saved Sessions
-        </h2>
-
-        <div id="savedSessions"></div>
-
-        <button
-            id="saveSessionBtn"
-            style="
+    <div class="main-layout">
+        <div class="sidebar">
+            <h2>Routes</h2>
+            <div id="routeStats"></div>
+            <h2 style="margin-top:30px;">Saved Sessions</h2>
+            <div id="savedSessions"></div>
+            <button id="saveSessionBtn" style="
                 width:100%;
                 margin-top:12px;
                 padding:12px;
@@ -134,22 +200,21 @@
                 border-radius:10px;
                 font-weight:bold;
                 cursor:pointer;
-            "
-        >
-            Save Current Session
-        </button>
-
+            ">
+                Save Current Session
+            </button>
+        </div>
+        <div id="map"></div>
     </div>
-
-    <div id="map"></div>
 
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="data/depots.js"></script>
+<script src="auth.js"></script>
 <script src="app.js"></script>
 
 </body>

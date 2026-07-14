@@ -2083,238 +2083,134 @@ function exportRoutes() {
 // ======================================
 // SAVE SESSION
 // ======================================
+// SAVE SESSION
+// ======================================
 
 function saveCurrentSession() {
 
     if (stopsData.length === 0) {
-
         alert("No routes loaded.");
-
         return;
     }
 
-    const sessionName =
-        prompt(
-            "Enter session name"
-        );
+    const sessionName = prompt("Enter session name");
+    if (!sessionName) return;
 
-    if (!sessionName) {
-        return;
-    }
-
-    const existingSessions =
-        JSON.parse(
-            localStorage.getItem(
-                'joybuy_sessions'
-            ) || '[]'
-        );
-
-    const sessionData = {
-
-        id:
-            crypto.randomUUID(),
-
-        name:
-            sessionName,
-
-        depot:
-            currentDepot.id,
-
-        createdAt:
-            new Date().toLocaleString(),
-
-        stops:
-            stopsData,
-
-        movedStops:
-            movedStops,
-hiddenRoutes:
-    hiddenRoutes
-    };
-
-    existingSessions.push(
-        sessionData
-    );
-
-    localStorage.setItem(
-        'joybuy_sessions',
-        JSON.stringify(
-            existingSessions
-        )
-    );
-
-    renderSavedSessions();
-
-    alert(
-        "Session saved."
-    );
+    saveSessionCloud(
+        sessionName,
+        currentDepot.id,
+        stopsData,
+        movedStops,
+        hiddenRoutes
+    ).then(() => {
+        renderSavedSessions();
+        alert("Session saved.");
+    }).catch(err => {
+        console.error(err);
+        alert("Error saving session.");
+    });
 }
+
 // ======================================
 // RENDER SAVED SESSIONS
 // ======================================
 
-function renderSavedSessions() {
+async function renderSavedSessions() {
 
-    const sessions =
-        JSON.parse(
-            localStorage.getItem(
-                'joybuy_sessions'
-            ) || '[]'
-        );
+    savedSessionsContainer.innerHTML =
+        '<div style="color:gray;font-size:14px;">Loading...</div>';
 
-    savedSessionsContainer.innerHTML = '';
+    try {
+        const sessions = await getSessionsCloud();
 
-    if (sessions.length === 0) {
+        savedSessionsContainer.innerHTML = '';
 
-        savedSessionsContainer.innerHTML =
-            `
-            <div style="
-                color:gray;
-                font-size:14px;
-            ">
-                No saved sessions
-            </div>
-            `;
+        if (sessions.length === 0) {
+            savedSessionsContainer.innerHTML =
+                '<div style="color:gray;font-size:14px;">No saved sessions</div>';
+            return;
+        }
 
-        return;
-    }
+        sessions.forEach(session => {
 
-    sessions.forEach(
-        session => {
-
-            const div =
-                document.createElement(
-                    'div'
-                );
-
-            div.style.background =
-                'white';
-
-            div.style.padding =
-                '12px';
-
-            div.style.borderRadius =
-                '10px';
-
-            div.style.marginBottom =
-                '10px';
-
-            div.style.boxShadow =
-                '0 1px 4px rgba(0,0,0,0.1)';
+            const div = document.createElement('div');
+            div.style.background = 'white';
+            div.style.padding = '12px';
+            div.style.borderRadius = '10px';
+            div.style.marginBottom = '10px';
+            div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)';
 
             div.innerHTML = `
-
-                <div style="
-                    font-weight:bold;
-                    margin-bottom:6px;
-                ">
+                <div style="font-weight:bold;margin-bottom:6px;">
                     ${session.name}
                 </div>
-
-                <div style="
-                    font-size:13px;
-                    color:gray;
-                    margin-bottom:10px;
-                ">
-                    ${session.createdAt}
+                <div style="font-size:13px;color:gray;margin-bottom:10px;">
+                    ${new Date(session.created_at).toLocaleString()}
                 </div>
-
-                <button
-                    onclick="loadSession('${session.id}')"
-                    style="
-                        margin-right:6px;
-                        background:#2563eb;
-                    "
-                >
+                <button onclick="loadSession('${session.id}')"
+                    style="margin-right:6px;background:#2563eb;">
                     Load
                 </button>
-
-                <button
-                    onclick="deleteSession('${session.id}')"
-                    style="
-                        background:#dc2626;
-                    "
-                >
+                <button onclick="deleteSession('${session.id}')"
+                    style="background:#dc2626;">
                     Delete
                 </button>
             `;
 
-            savedSessionsContainer.appendChild(
-                div
-            );
-        }
-    );
+            savedSessionsContainer.appendChild(div);
+        });
+
+    } catch (err) {
+        savedSessionsContainer.innerHTML =
+            '<div style="color:red;font-size:14px;">Error loading sessions.</div>';
+    }
 }
+
 // ======================================
 // LOAD SESSION
 // ======================================
 
-window.loadSession =
-async function(sessionId) {
+window.loadSession = async function(sessionId) {
 
-    const sessions =
-        JSON.parse(
-            localStorage.getItem(
-                'joybuy_sessions'
-            ) || '[]'
-        );
+    try {
+        const sessions = await getSessionsCloud();
+        const session = sessions.find(x => x.id === sessionId);
+        if (!session) return;
 
-    const session =
-        sessions.find(
-            x => x.id === sessionId
-        );
+        currentDepot = DEPOTS[session.depot_config];
+        depotSelector.value = session.depot_config;
 
-    if (!session) {
-        return;
-    }
-
-    currentDepot =
-        DEPOTS[
-            session.depot
-        ];
-
-    depotSelector.value =
-        session.depot;
-
-    stopsData =
-        session.stops;
+        stopsData = session.stops;
         routeCache = {};
+        movedStops = session.moved_stops || {};
+        hiddenRoutes = session.hidden_routes || [];
 
-    movedStops =
-        session.movedStops || {};
-hiddenRoutes =
-    session.hiddenRoutes || [];
-    await renderMap();
+        await renderMap();
+        renderSidebar();
 
-    renderSidebar();
-}
+    } catch (err) {
+        console.error(err);
+        alert("Error loading session.");
+    }
+};
+
 // ======================================
 // DELETE SESSION
 // ======================================
 
-window.deleteSession =
-function(sessionId) {
+window.deleteSession = async function(sessionId) {
 
-    const sessions =
-        JSON.parse(
-            localStorage.getItem(
-                'joybuy_sessions'
-            ) || '[]'
-        );
+    if (!confirm('Delete this session?')) return;
 
-    const filtered =
-        sessions.filter(
-            x => x.id !== sessionId
-        );
+    try {
+        await deleteSessionCloud(sessionId);
+        renderSavedSessions();
+    } catch (err) {
+        console.error(err);
+        alert("Error deleting session.");
+    }
+};
 
-    localStorage.setItem(
-        'joybuy_sessions',
-        JSON.stringify(filtered)
-    );
-
-    renderSavedSessions();
-}
-renderSavedSessions();
 // ======================================
 // TOGGLE ROUTE VISIBILITY
 // ======================================
