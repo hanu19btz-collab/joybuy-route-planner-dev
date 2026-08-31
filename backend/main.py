@@ -299,3 +299,64 @@ async def upload_excel(
             print(e)
 
     return list(grouped_locations.values())
+    
+# =====================================
+# ORS PROXY (avoid CORS from browser)
+# =====================================
+
+ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
+
+
+@app.post("/route-geometry")
+def route_geometry(body: dict):
+    if not ORS_API_KEY:
+        raise HTTPException(500, "ORS_API_KEY not configured on server")
+
+    coordinates = body.get("coordinates")
+    if not coordinates or len(coordinates) < 2:
+        raise HTTPException(400, "Need at least 2 coordinates")
+
+    r = requests.post(
+        "https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson",
+        json={
+            "coordinates": coordinates,
+            "instructions": False,
+            "preference": "recommended",
+        },
+        headers={
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json",
+        },
+    )
+
+    if r.status_code != 200:
+        raise HTTPException(r.status_code, f"ORS error: {r.text}")
+
+    return r.json()
+
+
+@app.post("/route-matrix")
+def route_matrix(body: dict):
+    if not ORS_API_KEY:
+        raise HTTPException(500, "ORS_API_KEY not configured on server")
+
+    locations = body.get("locations")
+    if not locations or len(locations) < 2:
+        raise HTTPException(400, "Need at least 2 locations")
+
+    r = requests.post(
+        "https://api.heigit.org/openrouteservice/v2/matrix/driving-car",
+        json={
+            "locations": locations,
+            "metrics": ["distance"],
+        },
+        headers={
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json",
+        },
+    )
+
+    if r.status_code != 200:
+        raise HTTPException(r.status_code, f"ORS error: {r.text}")
+
+    return r.json()
