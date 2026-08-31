@@ -75,7 +75,7 @@ window.doLogout = async function () {
 
 // ===== CLOUD SESSION CRUD =====
 
-window.saveSessionCloud = async function (name, depotConfigId, stops, movedStops, hiddenRoutes) {
+window.saveSessionCloud = async function (name, depotConfigId, stops, movedStops, hiddenRoutes, stopMinutes) {
     const { error } = await _supabase.from('sessions').insert({
         user_id: currentUser.id,
         depot_id: currentProfile.depot_id,
@@ -83,7 +83,8 @@ window.saveSessionCloud = async function (name, depotConfigId, stops, movedStops
         name,
         stops,
         moved_stops: movedStops,
-        hidden_routes: hiddenRoutes
+        hidden_routes: hiddenRoutes,
+        stop_minutes: stopMinutes
     });
     if (error) throw error;
 };
