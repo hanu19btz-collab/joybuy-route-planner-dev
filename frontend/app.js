@@ -2143,12 +2143,13 @@ function saveCurrentSession() {
     const sessionName = prompt("Enter session name");
     if (!sessionName) return;
 
-    saveSessionCloud(
+        saveSessionCloud(
         sessionName,
         currentDepot.id,
         stopsData,
         movedStops,
-        hiddenRoutes
+        hiddenRoutes,
+        stopMinutesPerRoute
     ).then(() => {
         renderSavedSessions();
         alert("Session saved.");
@@ -2227,10 +2228,11 @@ window.loadSession = async function(sessionId) {
         currentDepot = DEPOTS[session.depot_config];
         depotSelector.value = session.depot_config;
 
-        stopsData = session.stops;
+                stopsData = session.stops;
         routeCache = {};
         movedStops = session.moved_stops || {};
         hiddenRoutes = session.hidden_routes || [];
+        stopMinutesPerRoute = session.stop_minutes || {};
 
         await renderMap();
         renderSidebar();
