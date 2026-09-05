@@ -74,13 +74,11 @@ const DEPOTS = {
         postcode: "CV7 9RE",
         lat:      52.42717,
         lng:      -1.41181,
-        routes: {
-            "Route 1":   ["CV21","CV22","CV23","CV31","CV32","CV33","CV34","CV35","CV36","CV37","CV47","CV8","NN11"],
-            "Route 2":   ["CV1","CV2"],
-            "Route 3":   ["CV4","CV5","CV6"],
-            "Route 4":   ["CV10","CV11","CV9"],
-            "Route 1&2": ["CV3"],
-            "Route 3&4": ["CV12","CV7"]
+                routes: {
+            "Route 1": ["CV21","CV22","CV23","CV47","LE17","NN11"],
+            "Route 2": ["CV1","CV2","CV3"],
+            "Route 3": ["CV8","CV31","CV32","CV33","CV34","CV35","CV36","CV37"],
+            "Route 4": ["CV4","CV5","CV6","CV7","CV9","CV10","CV11","CV12","LE10"]
         }
     }
 
