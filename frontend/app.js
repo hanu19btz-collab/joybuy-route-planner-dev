@@ -330,7 +330,7 @@ addStopBtn.addEventListener(
 
                 const stopType =
             prompt(
-                "Tip stop:\nP = Pickup\nR = Redelivery\n(lasă gol pentru stop normal)"
+                "Tip stop:\nP = Pickup\nR = Redelivery\n(leave empty for normal drop)"
             );
 
         const stopTypeClean =
