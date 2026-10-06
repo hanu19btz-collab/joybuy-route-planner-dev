@@ -1,5 +1,5 @@
 {
-  "colors": {
+   "colors": {
     "Route 1": "#ef4444",
     "Route 2": "#3b82f6",
     "Route 3": "#22c55e",
@@ -10,8 +10,21 @@
     "Route 8": "#84cc16",
     "Route 9": "#ec4899",
     "Route 10": "#f97316",
-    "Route 1&2": "#991b1b",
-    "Route 3&4": "#14532d",
+    "Route 11": "#14b8a6",
+    "Route 12": "#eab308",
+    "Route 13": "#6366f1",
+    "Route 14": "#f43f5e",
+    "Route 15": "#7c3aed",
+    "Route 16": "#0ea5e9",
+    "Route 17": "#65a30d",
+    "Route 18": "#d946ef",
+    "Route 19": "#78716c",
+    "Route 20": "#b91c1c",
+    "Route 21": "#0891b2",
+    "Route 22": "#ca8a04",
+    "Route 23": "#4338ca",
+    "Route 24": "#15803d",
+    "Route 25": "#be185d",
     "Unassigned": "gray",
     "Invalid": "black"
   },
@@ -21,30 +34,25 @@
       "postcode": "LE11 5GX",
       "lat": 52.7806,
       "lng": -1.2215,
-      "routes": {
+           "routes": {
         "Route 1": [
           "NG1",
-          "NG2",
           "NG3",
-          "NG4",
-          "NG5",
-          "NG12"
+          "NG5"
         ],
         "Route 2": [
           "NG6",
           "NG7",
-          "NG8",
-          "NG9",
-          "NG10",
-          "NG11"
+          "NG8"
         ],
         "Route 3": [
+          "CV13",
           "LE2",
           "LE3",
           "LE6",
           "LE9",
-          "LE19",
-          "CV13"
+          "LE18",
+          "LE19"
         ],
         "Route 4": [
           "LE1",
@@ -55,23 +63,35 @@
           "LE13",
           "LE14",
           "LE15",
-          "LE16",
-          "LE18"
+          "LE16"
         ],
         "Route 5": [
+          "DE12",
           "LE11",
           "LE12",
           "LE65",
-          "LE67",
-          "DE12",
-          "DE73",
-          "DE74",
-          "DE24",
-          "DE23",
-          "DE22",
-          "DE21",
+          "LE67"
+        ],
+        "Route 6": [
           "DE1",
-          "DE3"
+          "DE3",
+          "DE21",
+          "DE22",
+          "DE23",
+          "DE24",
+          "DE73",
+          "DE74"
+        ],
+        "Route 7": [
+          "NG2",
+          "NG4",
+          "NG12"
+        ],
+        "Route 8": [
+          "NG9",
+          "NG10",
+          "NG11",
+          "NG90"
         ]
       }
     },
