@@ -307,9 +307,19 @@ async def upload_excel(
 ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
 
 
+def get_ors_key(depot_id):
+    """Cheie ORS proprie depozitului (ORS_API_KEY_<COD>), altfel cheia principală."""
+    if depot_id:
+        key = os.environ.get(f"ORS_API_KEY_{str(depot_id).upper()}", "")
+        if key:
+            return key
+    return ORS_API_KEY
+
+
 @app.post("/route-geometry")
 def route_geometry(body: dict):
-    if not ORS_API_KEY:
+    api_key = get_ors_key(body.get("depot"))
+    if not api_key:
         raise HTTPException(500, "ORS_API_KEY not configured on server")
 
     coordinates = body.get("coordinates")
@@ -324,7 +334,7 @@ def route_geometry(body: dict):
             "preference": "recommended",
         },
         headers={
-            "Authorization": ORS_API_KEY,
+            "Authorization": api_key,
             "Content-Type": "application/json",
         },
     )
@@ -337,7 +347,8 @@ def route_geometry(body: dict):
 
 @app.post("/route-matrix")
 def route_matrix(body: dict):
-    if not ORS_API_KEY:
+    api_key = get_ors_key(body.get("depot"))
+    if not api_key:
         raise HTTPException(500, "ORS_API_KEY not configured on server")
 
     locations = body.get("locations")
@@ -351,7 +362,7 @@ def route_matrix(body: dict):
             "metrics": ["distance"],
         },
         headers={
-            "Authorization": ORS_API_KEY,
+            "Authorization": api_key,
             "Content-Type": "application/json",
         },
     )
