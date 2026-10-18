@@ -179,6 +179,10 @@ async function _renderAdminUsers() {
                         <option value="B66">Birmingham (B66)</option>
                         <option value="LTN">Luton (LTN)</option>
                         <option value="CVY">Coventry (CVY)</option>
+                        <option value="E16">Stratford (E16)</option>
+                        <option value="CAM">Cambridge (CAM)</option>
+                        <option value="OXF">Oxford (OXF)</option>
+                        <option value="ROM">Romford (ROM)</option>
                         <option value="admin">Admin</option>
                     </select>
                     <select id="newUserRole" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
@@ -232,6 +236,10 @@ function _userCard(u) {
                         <option value="B66" ${depotId==='B66'?'selected':''}>Birmingham (B66)</option>
                         <option value="LTN" ${depotId==='LTN'?'selected':''}>Luton (LTN)</option>
                         <option value="CVY" ${depotId==='CVY'?'selected':''}>Coventry (CVY)</option>
+                        <option value="E16" ${depotId==='E16'?'selected':''}>Stratford (E16)</option>
+                        <option value="CAM" ${depotId==='CAM'?'selected':''}>Cambridge (CAM)</option>
+                        <option value="OXF" ${depotId==='OXF'?'selected':''}>Oxford (OXF)</option>
+                        <option value="ROM" ${depotId==='ROM'?'selected':''}>Romford (ROM)</option>
                         <option value="admin" ${depotId==='admin'?'selected':''}>Admin</option>
                     </select>
                     <select id="editRole_${id}" style="flex:1;padding:7px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
