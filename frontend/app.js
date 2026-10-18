@@ -1,8 +1,3 @@
-
-
-
-
-
 // Default to the first depot defined in depots.json
 let currentDepot =
     DEPOTS[Object.keys(DEPOTS)[0]];
@@ -105,64 +100,30 @@ saveSessionBtn.addEventListener(
 // NORMALIZE ROUTE
 // ======================================
 
+// Maximum number of routes a depot can use (Route 1 ... Route 25).
+// Colours for every route are defined in data/depots.js (ROUTE_COLORS).
+const MAX_ROUTES = 25;
+const ALL_ROUTES = Array.from(
+    { length: MAX_ROUTES },
+    (_, i) => `Route ${i + 1}`
+);
+
 function normalizeRouteName(route) {
 
     if (!route) return "Unassigned";
 
-    const clean = route.trim().toLowerCase();
+    const clean = String(route).trim().toLowerCase();
 
     if (clean === "unassigned") return "Unassigned";
     if (clean === "invalid") return "Invalid";
 
-    // Exact match against all known route names first (must run before
-    // the combo/number fallbacks below, otherwise two-digit routes like
-    // "Route 12" or "Route 21" get misread as the "1&2" combo route)
-    const known = [
-        "Route 1", "Route 2", "Route 3", "Route 4", "Route 5",
-        "Route 6", "Route 7", "Route 8", "Route 9", "Route 10",
-        "Route 11", "Route 12", "Route 13", "Route 14", "Route 15",
-        "Route 16", "Route 17", "Route 18", "Route 19", "Route 20",
-        "Route 21", "Route 22", "Route 23", "Route 24", "Route 25",
-        "Route 1&2", "Route 3&4"
-    ];
+    // "Route 12", "route12", "12" -> Route 12 (only 1..MAX_ROUTES is valid)
+    const m = clean.match(/\d+/);
 
-    for (const name of known) {
-        if (clean === name.toLowerCase()) return name;
+    if (m) {
+        const n = parseInt(m[0], 10);
+        if (n >= 1 && n <= MAX_ROUTES) return `Route ${n}`;
     }
-
-    // Combined routes — only treat as a combo if written explicitly ("&"/"and")
-    if (clean.includes("&") || clean.includes(" and ")) {
-        if (clean.includes("1") && clean.includes("2")) return "Route 1&2";
-        if (clean.includes("3") && clean.includes("4")) return "Route 3&4";
-    }
-
-    // Fallback: match by number — longest number first to avoid
-    // "Route 12" being caught by the "Route 1" check
-    if (clean.includes("25")) return "Route 25";
-    if (clean.includes("24")) return "Route 24";
-    if (clean.includes("23")) return "Route 23";
-    if (clean.includes("22")) return "Route 22";
-    if (clean.includes("21")) return "Route 21";
-    if (clean.includes("20")) return "Route 20";
-    if (clean.includes("19")) return "Route 19";
-    if (clean.includes("18")) return "Route 18";
-    if (clean.includes("17")) return "Route 17";
-    if (clean.includes("16")) return "Route 16";
-    if (clean.includes("15")) return "Route 15";
-    if (clean.includes("14")) return "Route 14";
-    if (clean.includes("13")) return "Route 13";
-    if (clean.includes("12")) return "Route 12";
-    if (clean.includes("11")) return "Route 11";
-    if (clean.includes("10")) return "Route 10";
-    if (clean.includes("1"))  return "Route 1";
-    if (clean.includes("2"))  return "Route 2";
-    if (clean.includes("3"))  return "Route 3";
-    if (clean.includes("4"))  return "Route 4";
-    if (clean.includes("5"))  return "Route 5";
-    if (clean.includes("6"))  return "Route 6";
-    if (clean.includes("7"))  return "Route 7";
-    if (clean.includes("8"))  return "Route 8";
-    if (clean.includes("9"))  return "Route 9";
 
     return "Unassigned";
 }
@@ -172,46 +133,20 @@ function normalizeRouteName(route) {
 // ======================================
 
 // All routes available for selection (Add Stop / Move Stop dropdowns)
-// Always Route 1-10, plus any special combined routes this depot defines
 function getDepotRoutes() {
-    const base = [
-        "Route 1","Route 2","Route 3","Route 4","Route 5",
-        "Route 6","Route 7","Route 8","Route 9","Route 10",
-        "Route 11","Route 12","Route 13","Route 14","Route 15",
-        "Route 16","Route 17","Route 18","Route 19","Route 20",
-        "Route 21","Route 22","Route 23","Route 24","Route 25"
-    ];
-    const special = currentDepot.routes
-        ? Object.keys(currentDepot.routes).filter(r => r.includes("&"))
-        : [];
-    return [...base, ...special];
+    return [...ALL_ROUTES];
 }
 
-// Routes to show in sidebar:
-// - Routes that have at least 1 stop loaded, OR
-// - Routes defined in depot config (so they appear even before upload)
-// Special routes only shown if depot defines them
+// Routes shown in the sidebar: Route 1-25, plus any other route name that
+// already exists in loaded data (e.g. an old saved session).
 function getSidebarRoutes() {
-    const depotDefined = currentDepot.routes
-        ? Object.keys(currentDepot.routes)
-        : [];
-    const withStops = [...new Set(stopsData.map(s => s.route))].filter(
-        r => r && r !== "Unassigned" && r !== "Invalid"
+    const extra = [...new Set(stopsData.map(s => s.route))].filter(
+        r => r
+            && r !== "Unassigned"
+            && r !== "Invalid"
+            && !ALL_ROUTES.includes(r)
     );
-    // Base routes 1-25 always in sidebar
-    const base = [
-        "Route 1","Route 2","Route 3","Route 4","Route 5",
-        "Route 6","Route 7","Route 8","Route 9","Route 10",
-        "Route 11","Route 12","Route 13","Route 14","Route 15",
-        "Route 16","Route 17","Route 18","Route 19","Route 20",
-        "Route 21","Route 22","Route 23","Route 24","Route 25"
-    ];
-    const special = [
-        ...depotDefined.filter(r => r.includes("&")),
-        ...withStops.filter(r => r.includes("&"))
-    ];
-    const allSpecial = [...new Set(special)];
-    return [...base, ...allSpecial];
+    return [...ALL_ROUTES, ...extra];
 }
 
 // ======================================
@@ -280,16 +215,40 @@ uploadBtn.addEventListener(
         try {
 
             const response =
-    await fetch(
-         `https://joybuy-route-planner-dev.onrender.com/upload?depot=${currentDepot.id}`,
+                await fetch(
+                    `${BACKEND}/upload?depot=${currentDepot.id}`,
                     {
                         method: 'POST',
+                        headers: await authHeaders(),
                         body: formData
                     }
                 );
 
-            stopsData =
-                await response.json();
+            if (!response.ok) {
+
+                let message = `Upload failed (${response.status}).`;
+
+                try {
+                    const errBody = await response.json();
+                    if (errBody && errBody.detail) {
+                        message = String(errBody.detail);
+                    }
+                } catch (e) { /* response was not JSON */ }
+
+                if (response.status === 401) {
+                    message = "Your login expired. Please log in again.";
+                }
+
+                throw new Error(message);
+            }
+
+            const uploaded = await response.json();
+
+            if (!Array.isArray(uploaded)) {
+                throw new Error("Unexpected response from the server.");
+            }
+
+            stopsData = uploaded;
 
             stopsData.forEach(
                 stop => {
@@ -319,12 +278,38 @@ uploadBtn.addEventListener(
 
             renderSidebar();
 
+            // Postcodes the lookup service did not recognise: they have no
+            // coordinates, so they are not on the map (they ARE kept and
+            // listed in the Excel export, sheet "Unmapped").
+            const unmapped =
+                stopsData.filter(s => !s.lat || !s.lng);
+
+            if (unmapped.length > 0) {
+
+                const preview =
+                    unmapped
+                        .slice(0, 15)
+                        .map(s => `${s.postcode} (${s.parcels || 0})`)
+                        .join(", ");
+
+                alert(
+                    `${unmapped.length} postcode(s) could not be placed on the map ` +
+                    `(not found by the postcode service):\n\n` +
+                    preview +
+                    (unmapped.length > 15 ? ", ..." : "") +
+                    `\n\nThey are still counted and are listed in the ` +
+                    `exported Excel file (sheet "Unmapped").`
+                );
+            }
+
         } catch (err) {
 
             console.error(err);
 
             alert(
-                "Upload error."
+                err instanceof TypeError
+                    ? "Could not reach the server. It may be waking up - wait a minute and try again."
+                    : (err && err.message) || "Upload error."
             );
         }
 
@@ -408,7 +393,7 @@ addStopBtn.addEventListener(
 
             const data =
                 await response.json();
-console.log(data);
+
             if (
                 data.status !== 200
             ) {
@@ -534,7 +519,14 @@ function clearMap() {
 // RENDER MAP
 // ======================================
 
+// Every renderMap() call gets a number. If a newer render starts while an
+// older one is still waiting for the server, the older one stops, so
+// overlapping renders do not flood /route-geometry.
+let renderGeneration = 0;
+
 async function renderMap() {
+
+    const myGeneration = ++renderGeneration;
 
     clearMap();
 
@@ -765,13 +757,18 @@ marker.routeName =
                 x => x.route === route
             );
 
+        if (myGeneration !== renderGeneration) return;
+
         await drawRealRoute(
             route,
             stops,
             sampleStop?.color ||
-            "gray"
+            "gray",
+            myGeneration
         );
     }
+
+    if (myGeneration !== renderGeneration) return;
 
     if (bounds.length > 0) {
 
@@ -784,10 +781,75 @@ marker.routeName =
 // DRAW ROUTE
 // ======================================
 
+// Headers with the login token (the backend requires a logged-in user)
+async function authHeaders() {
+    const token = await _getToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+// /route-geometry requests: one at a time, retried on 429/502/503/504,
+// and a route that failed is not requested again for 60 seconds.
+const geometryFailures = {};
+let geometryQueue = Promise.resolve();
+
+function fetchRouteGeometry(body, cacheKey) {
+
+    const lastFail = geometryFailures[cacheKey];
+
+    if (lastFail && Date.now() - lastFail < 60000) {
+        return Promise.resolve(null);
+    }
+
+    const run = geometryQueue.then(async () => {
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+
+            try {
+
+                const response = await fetch(
+                    `${BACKEND}/route-geometry`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(await authHeaders())
+                        },
+                        body: JSON.stringify(body)
+                    }
+                );
+
+                if (response.ok) {
+                    return await response.json();
+                }
+
+                if (![429, 502, 503, 504].includes(response.status)) {
+                    break;
+                }
+
+            } catch (e) {
+                // network error (a gateway error page has no CORS headers
+                // either): treat it like a temporary failure and retry
+            }
+
+            await new Promise(
+                resolve => setTimeout(resolve, 2000 * (attempt + 1))
+            );
+        }
+
+        geometryFailures[cacheKey] = Date.now();
+        return null;
+    });
+
+    geometryQueue = run.catch(() => {});
+
+    return run;
+}
+
 async function drawRealRoute(
     routeName,
     stops,
-    color
+    color,
+    generation
 ) {
 
     if (stops.length < 1) {
@@ -852,28 +914,47 @@ if (
             currentDepot.lat
         ]);
 
-                const response =
-            await fetch(
-                'https://joybuy-route-planner-dev.onrender.com/route-geometry',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
+            const data =
+                await fetchRouteGeometry(
+                    {
                         coordinates: coordinates,
                         depot: currentDepot.id
-                    })
-                }
-            );
+                    },
+                    cacheKey
+                );
 
-            const data =
-                await response.json();
+            // a newer render started while we were waiting: drop this one
+            if (
+                generation !== undefined &&
+                generation !== renderGeneration
+            ) {
+                return;
+            }
 
             if (
+                !data ||
                 !data.features ||
                 !data.features.length
             ) {
+
+                // Road route not available right now: show a dashed
+                // straight line so the route is still visible
+                const fallbackLine =
+                    L.polyline(
+                        coordinates.map(c => [c[1], c[0]]),
+                        {
+                            color: color,
+                            weight: 3,
+                            opacity: 0.6,
+                            dashArray: '6 8'
+                        }
+                    ).addTo(map);
+
+                polylines.push(fallbackLine);
+
+                routeLayers[routeName] =
+                    fallbackLine;
+
                 return;
             }
 
@@ -1025,11 +1106,12 @@ async function getDistanceMatrix(nodes) {
 
                 const response =
             await fetch(
-                'https://joybuy-route-planner-dev.onrender.com/route-matrix',
+                `${BACKEND}/route-matrix`,
                 {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        ...(await authHeaders())
                     },
                     body: JSON.stringify({
                         depot: currentDepot.id,
@@ -2072,6 +2154,7 @@ function exportRoutes() {
         let totalParcels = 0;
         let totalPickup = 0;
         let totalRedelivery = 0;
+        let totalNotOnMap = 0;
 
         const summaryRows =
             uniqueRoutes.map(
@@ -2093,16 +2176,21 @@ function exportRoutes() {
                     const redeliveryCount =
                         routeStops.filter(s => s.redelivery).length;
 
+                    const notOnMapCount =
+                        routeStops.filter(s => !s.lat || !s.lng).length;
+
                     totalParcels += parcels;
                     totalPickup += pickupCount;
                     totalRedelivery += redeliveryCount;
+                    totalNotOnMap += notOnMapCount;
 
                     return {
                         Route: route,
                         Parcels: parcels,
                         Pickup: pickupCount || "",
                         Redelivery: redeliveryCount || "",
-                        Total: parcels + pickupCount + redeliveryCount
+                        Total: parcels + pickupCount + redeliveryCount,
+                        Not_On_Map: notOnMapCount || ""
                     };
                 }
             ).filter(row => row.Total > 0);
@@ -2112,7 +2200,8 @@ function exportRoutes() {
             Parcels: totalParcels,
             Pickup: totalPickup || "",
             Redelivery: totalRedelivery || "",
-            Total: totalParcels + totalPickup + totalRedelivery
+            Total: totalParcels + totalPickup + totalRedelivery,
+            Not_On_Map: totalNotOnMap || ""
         });
 
         const summarySheet =
@@ -2123,6 +2212,36 @@ function exportRoutes() {
             summarySheet,
             "Summary"
         );
+
+        // ======================================
+        // UNMAPPED POSTCODES SHEET
+        // ======================================
+
+        const unmappedStops =
+            stopsData.filter(s => !s.lat || !s.lng);
+
+        if (unmappedStops.length > 0) {
+
+            const unmappedData =
+                unmappedStops.map(
+                    stop => ({
+                        Postcode: stop.postcode,
+                        Route: stop.route,
+                        Parcels: stop.parcels || 0,
+                        JDW_Numbers:
+                            Array.isArray(stop.jdwNumbers)
+                                ? stop.jdwNumbers.join(", ")
+                                : "",
+                        Reason: "Not found by postcode lookup service - not shown on the map, check manually"
+                    })
+                );
+
+            XLSX.utils.book_append_sheet(
+                workbook,
+                XLSX.utils.json_to_sheet(unmappedData),
+                "Unmapped"
+            );
+        }
 
         uniqueRoutes.forEach(
             route => {
@@ -2173,6 +2292,11 @@ function exportRoutes() {
 
     Pickup:
         stop.pickup
+            ? "YES"
+            : "NO",
+
+    On_Map:
+        (stop.lat && stop.lng)
             ? "YES"
             : "NO"
 })
@@ -2468,10 +2592,8 @@ map.on(
     'mousedown',
     function(e) {
 
-        console.log("mousedown");
         if (!e.originalEvent.shiftKey)
             return;
-        console.log("SHIFT");
 
         isSelecting = true;
 
@@ -2522,7 +2644,6 @@ map.on(
 map.on(
     'mouseup',
     function() {
-console.log("mouseup");
 
 if (
     !isSelecting ||
@@ -2557,18 +2678,11 @@ markers.forEach(
                 marker.stopId
             );
 
-            console.log(
-                marker.stopData.postcode
-            );
         }
 
     }
 );
 
-console.log(
-    "Selected:",
-    selectedStops.length
-);
 
 document.getElementById(
     "multiSelectBar"
