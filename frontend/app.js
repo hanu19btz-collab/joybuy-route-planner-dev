@@ -354,6 +354,37 @@ addStopBtn.addEventListener(
         const isRedelivery =
             stopTypeClean === "R";
 
+        const parcelsInput =
+            prompt(
+                "Number of parcels for this drop (default 1)",
+                "1"
+            );
+
+        // Cancel on the parcels prompt = cancel adding the stop
+        if (parcelsInput === null) {
+            return;
+        }
+
+        const parcelsText =
+            parcelsInput.trim() === ""
+                ? "1"
+                : parcelsInput.trim();
+
+        const parcelsCount =
+            Number(parcelsText);
+
+        if (
+            !Number.isInteger(parcelsCount) ||
+            parcelsCount < 0
+        ) {
+
+            alert(
+                "Invalid number of parcels. Enter a whole number (0 or more)."
+            );
+
+            return;
+        }
+
         let selectedRoute =
             prompt(
                 "Choose Route:\n\n" + getDepotRoutes().join("\n")
@@ -434,7 +465,13 @@ addStopBtn.addEventListener(
                     isRedelivery,
 
                 pickup:
-                    isPickup
+                    isPickup,
+
+                parcels:
+                    parcelsCount,
+
+                jdwNumbers:
+                    []
             };
 
             let insertIndex = 0;
