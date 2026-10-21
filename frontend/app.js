@@ -2183,8 +2183,8 @@ function exportRoutes() {
         // route sheets, so editing a route sheet updates the Summary.
         // Columns: Route | Parcels | Pickup | Redelivery | Total | Not_On_Map | Real
         // Parcels / Pickup / Redelivery are parcel counts (not stop counts)
-        // Real = Parcels + Redelivery (pickups are not counted)
-        // total row of Real = sum of Real + total Redelivery
+        // Total = Parcels + Redelivery (pickups are NOT counted)
+        // Real = empty column, filled in manually; its total row sums what is typed in
         // ======================================
 
         const summaryAoa = [[
@@ -2222,9 +2222,8 @@ function exportRoutes() {
                 sums.parcels += parcels;
                 sums.pickup += pickup;
                 sums.redelivery += redelivery;
-                sums.total += parcels + pickup + redelivery;
+                sums.total += parcels + redelivery;
                 sums.notOnMap += notOnMap;
-                sums.real += parcels + redelivery;
 
                 summaryAoa.push([
                     route,
@@ -2238,14 +2237,13 @@ function exportRoutes() {
                         `SUMIFS(${sh}$D$2:$D$${last},${sh}$F$2:$F$${last},"YES")`,
                         redelivery, ZERO_BLANK),
                     formulaCell(
-                        `B${r}+C${r}+D${r}`,
-                        parcels + pickup + redelivery, ZERO_BLANK),
+                        `B${r}+D${r}`,
+                        parcels + redelivery, ZERO_BLANK),
                     formulaCell(
                         `COUNTIF(${sh}$H$2:$H$${last},"NO")`,
                         notOnMap, ZERO_BLANK),
-                    formulaCell(
-                        `B${r}+D${r}`,
-                        parcels + redelivery, ZERO_BLANK)
+                    // Real: left empty on purpose, filled in manually after the drivers' check
+                    null
                 ]);
             }
         );
@@ -2259,7 +2257,7 @@ function exportRoutes() {
             formulaCell(`SUM(D2:D${lastSummaryRow})`, sums.redelivery, ZERO_BLANK),
             formulaCell(`SUM(E2:E${lastSummaryRow})`, sums.total, ZERO_BLANK),
             formulaCell(`SUM(F2:F${lastSummaryRow})`, sums.notOnMap, ZERO_BLANK),
-            formulaCell(`SUM(G2:G${lastSummaryRow})+D${lastSummaryRow + 1}`, sums.real + sums.redelivery, ZERO_BLANK)
+            formulaCell(`SUM(G2:G${lastSummaryRow})`, 0, ZERO_BLANK)
         ]);
 
         XLSX.utils.book_append_sheet(
