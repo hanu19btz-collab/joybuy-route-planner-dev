@@ -2329,9 +2329,12 @@ function exportRoutes() {
 
                 rows.push([
                     null, null, "Total",
+                    // Total = Parcels + Redelivery (stops marked Pickup = YES are not counted)
                     formulaCell(
-                        `SUM(D2:D${last})`,
-                        routeStops.reduce((sum, s) => sum + (s.parcels || 0), 0)
+                        `SUMIFS(D2:D${last},G2:G${last},"NO")`,
+                        routeStops
+                            .filter(s => !s.pickup)
+                            .reduce((sum, s) => sum + (s.parcels || 0), 0)
                     )
                 ]);
 
