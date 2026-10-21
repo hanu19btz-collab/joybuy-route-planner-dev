@@ -2073,6 +2073,23 @@ ${
         : ''
 }
 
+<button
+    onclick="copyRouteForWhatsApp('${route}', this)"
+    style="
+        width:100%;
+        margin-top:10px;
+        padding:8px;
+        background:rgba(255,255,255,0.9);
+        color:#111;
+        border:none;
+        border-radius:6px;
+        font-weight:bold;
+        cursor:pointer;
+    "
+>
+    Copy for WhatsApp
+</button>
+
 <label style="
     display:flex;
     align-items:center;
@@ -2586,6 +2603,211 @@ window.deleteSession = async function(sessionId) {
 // ======================================
 // TOGGLE ROUTE VISIBILITY
 // ======================================
+
+// ======================================
+// COPY ROUTE FOR WHATSAPP
+// Copies the route table (same columns as the Excel route sheet)
+// as a picture; paste it straight into WhatsApp with Ctrl+V.
+// ======================================
+
+function buildRouteTableData(route) {
+
+    const routeStops =
+        stopsData.filter(
+            x => x.route === route
+        );
+
+    const header = [
+        "Stop_Number", "Postcode", "Route", "Parcels",
+        "JDW_Numbers", "Redelivery", "Pickup"
+    ];
+
+    const rows =
+        routeStops.map(
+            (stop, index) => [
+                String(index + 1),
+                stop.postcode || "",
+                stop.route,
+                String(stop.parcels || 0),
+                Array.isArray(stop.jdwNumbers)
+                    ? stop.jdwNumbers.join(", ")
+                    : "",
+                stop.redelivery ? "YES" : "NO",
+                stop.pickup ? "YES" : "NO"
+            ]
+        );
+
+    // Same rule as the Excel Total row: Parcels + Redelivery, Pickup not counted
+    const total =
+        routeStops
+            .filter(s => !s.pickup)
+            .reduce((sum, s) => sum + (s.parcels || 0), 0);
+
+    return { header, rows, total };
+}
+
+function drawRouteTable(data) {
+
+    // Looks like the Excel sheet: one line per stop, equal narrow columns,
+    // text clipped at the cell edge (e.g. "JDW20064"), with table borders.
+    const SCALE = 2;
+    const COL_W = 88;
+    const ROW_H = 26;
+    const PAD_X = 4;
+    const COLS = 7;
+    const FONT = "19px Calibri, Carlito, Arial, sans-serif";
+    const FONT_BOLD = "bold 19px Calibri, Carlito, Arial, sans-serif";
+    const GRID = "#8c8c8c";
+    const RIGHT = [true, false, false, true, false, false, false];
+
+    const allRows = [
+        data.header,
+        ...data.rows,
+        ["", "", "Total", String(data.total), "", "", ""]
+    ];
+
+    const width = COL_W * COLS;
+    const height = ROW_H * allRows.length;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width * SCALE;
+    canvas.height = height * SCALE;
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(SCALE, SCALE);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+
+    // header row background
+    ctx.fillStyle = "#e7e9ee";
+    ctx.fillRect(0, 0, width, ROW_H);
+
+    // total row background
+    ctx.fillStyle = "#f3f4f6";
+    ctx.fillRect(0, height - ROW_H, width, ROW_H);
+
+    ctx.fillStyle = "#000000";
+    ctx.textBaseline = "middle";
+
+    allRows.forEach((cells, r) => {
+
+        // header and Total row are bold
+        ctx.font = (r === 0 || r === allRows.length - 1) ? FONT_BOLD : FONT;
+
+        cells.forEach((text, c) => {
+
+            if (!text) return;
+
+            const x = c * COL_W;
+            const y = r * ROW_H;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x + 1, y + 1, COL_W - 2, ROW_H - 2);
+            ctx.clip();
+
+            // header row is left-aligned; numbers in the rows are right-aligned
+            const alignRight = RIGHT[c] && r > 0;
+
+            ctx.textAlign = alignRight ? "right" : "left";
+            ctx.fillText(
+                text,
+                alignRight ? x + COL_W - PAD_X : x + PAD_X,
+                y + ROW_H / 2 + 1
+            );
+
+            ctx.restore();
+        });
+    });
+
+    // table borders (every cell, plus a stronger line under the header
+    // and above the Total row)
+    ctx.strokeStyle = GRID;
+    ctx.lineWidth = 1;
+
+    for (let r = 0; r <= allRows.length; r++) {
+        ctx.beginPath();
+        const ly = Math.min(r * ROW_H + 0.5, height - 0.5);
+        ctx.moveTo(0, ly);
+        ctx.lineTo(width, ly);
+        ctx.stroke();
+    }
+
+    for (let c = 0; c <= COLS; c++) {
+        ctx.beginPath();
+        const lx = Math.min(c * COL_W + 0.5, width - 0.5);
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx, height);
+        ctx.stroke();
+    }
+
+    ctx.lineWidth = 2;
+    [ROW_H, height - ROW_H].forEach(y => {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    });
+
+    return canvas;
+}
+
+window.copyRouteForWhatsApp = async function(route, btn) {
+
+    const original = btn ? btn.textContent : "";
+
+    const flash = text => {
+        if (!btn) return;
+        btn.textContent = text;
+        setTimeout(() => { btn.textContent = original; }, 2500);
+    };
+
+    const data = buildRouteTableData(route);
+
+    // 1) picture of the table (WhatsApp Web / Desktop accept Ctrl+V)
+    try {
+
+        if (navigator.clipboard && window.ClipboardItem) {
+
+            const canvas = drawRouteTable(data);
+
+            const blobPromise = new Promise((resolve, reject) => {
+                canvas.toBlob(
+                    blob => blob ? resolve(blob) : reject(new Error("Image failed")),
+                    "image/png"
+                );
+            });
+
+            await navigator.clipboard.write([
+                new ClipboardItem({ "image/png": blobPromise })
+            ]);
+
+            flash("Copied! Paste in WhatsApp");
+            return;
+        }
+
+    } catch (err) {
+        // fall through to the text version
+    }
+
+    // 2) fallback: plain text (tab separated)
+    try {
+
+        const text =
+            [data.header, ...data.rows, ["", "", "Total", String(data.total)]]
+                .map(r => r.join("\t"))
+                .join("\n");
+
+        await navigator.clipboard.writeText(text);
+
+        flash("Copied as text");
+
+    } catch (err) {
+
+        alert("The browser did not allow copying. Check the clipboard permission for this site.");
+    }
+};
 
 window.toggleRoute =
 function(route) {
