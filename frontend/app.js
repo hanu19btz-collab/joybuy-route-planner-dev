@@ -2148,68 +2148,123 @@ function exportRoutes() {
         const uniqueRoutes = getSidebarRoutes();
 
         // ======================================
-        // SUMMARY SHEET (Route / Parcels / Pickup / Redelivery / Total)
+        // ROUTE SHEETS DATA (one sheet per route)
         // ======================================
 
-        let totalParcels = 0;
-        let totalPickup = 0;
-        let totalRedelivery = 0;
-        let totalNotOnMap = 0;
+        const routeSheets = [];
 
-        const summaryRows =
-            uniqueRoutes.map(
-                route => {
+        uniqueRoutes.forEach(
+            route => {
 
-                    const routeStops =
-                        stopsData.filter(
-                            x => x.route === route
-                        );
+                const routeStops =
+                    stopsData.filter(
+                        x => x.route === route
+                    );
 
-                    const parcels =
-                        routeStops
-                            .filter(s => !s.pickup && !s.redelivery)
-                            .reduce((sum, s) => sum + (s.parcels || 0), 0);
-
-                    const pickupCount =
-                        routeStops.filter(s => s.pickup).length;
-
-                    const redeliveryCount =
-                        routeStops.filter(s => s.redelivery).length;
-
-                    const notOnMapCount =
-                        routeStops.filter(s => !s.lat || !s.lng).length;
-
-                    totalParcels += parcels;
-                    totalPickup += pickupCount;
-                    totalRedelivery += redeliveryCount;
-                    totalNotOnMap += notOnMapCount;
-
-                    return {
-                        Route: route,
-                        Parcels: parcels,
-                        Pickup: pickupCount || "",
-                        Redelivery: redeliveryCount || "",
-                        Total: parcels + pickupCount + redeliveryCount,
-                        Not_On_Map: notOnMapCount || ""
-                    };
+                if (routeStops.length > 0) {
+                    routeSheets.push({ route, routeStops });
                 }
-            ).filter(row => row.Total > 0);
+            }
+        );
 
-        summaryRows.push({
-            Route: "total",
-            Parcels: totalParcels,
-            Pickup: totalPickup || "",
-            Redelivery: totalRedelivery || "",
-            Total: totalParcels + totalPickup + totalRedelivery,
-            Not_On_Map: totalNotOnMap || ""
-        });
+        // Zero values are shown as blank cells (same look as before)
+        const ZERO_BLANK = '0;-0;;@';
 
-        const summarySheet =
-            XLSX.utils.json_to_sheet(summaryRows);
+        const formulaCell =
+            (formula, value, fmt) => ({
+                t: 'n',
+                f: formula,
+                v: value,
+                z: fmt
+            });
+
+        // ======================================
+        // SUMMARY SHEET - every number is a formula that reads the
+        // route sheets, so editing a route sheet updates the Summary.
+        // Columns: Route | Parcels | Pickup | Redelivery | Total | Not_On_Map | Real
+        // Parcels / Pickup / Redelivery are parcel counts (not stop counts)
+        // Real = Parcels + Redelivery (pickups are not counted)
+        // total row of Real = sum of Real + total Redelivery
+        // ======================================
+
+        const summaryAoa = [[
+            "Route", "Parcels", "Pickup", "Redelivery",
+            "Total", "Not_On_Map", "Real"
+        ]];
+
+        const sums = {
+            parcels: 0, pickup: 0, redelivery: 0,
+            total: 0, notOnMap: 0, real: 0
+        };
+
+        routeSheets.forEach(
+            ({ route, routeStops }, i) => {
+
+                const r = i + 2;
+                const last = routeStops.length + 1;
+                const sh = `'${route}'!`;
+
+                const parcels =
+                    routeStops
+                        .filter(s => !s.pickup && !s.redelivery)
+                        .reduce((sum, s) => sum + (s.parcels || 0), 0);
+                const pickup =
+                    routeStops
+                        .filter(s => s.pickup)
+                        .reduce((sum, s) => sum + (s.parcels || 0), 0);
+                const redelivery =
+                    routeStops
+                        .filter(s => s.redelivery)
+                        .reduce((sum, s) => sum + (s.parcels || 0), 0);
+                const notOnMap =
+                    routeStops.filter(s => !s.lat || !s.lng).length;
+
+                sums.parcels += parcels;
+                sums.pickup += pickup;
+                sums.redelivery += redelivery;
+                sums.total += parcels + pickup + redelivery;
+                sums.notOnMap += notOnMap;
+                sums.real += parcels + redelivery;
+
+                summaryAoa.push([
+                    route,
+                    formulaCell(
+                        `SUMIFS(${sh}$D$2:$D$${last},${sh}$F$2:$F$${last},"NO",${sh}$G$2:$G$${last},"NO")`,
+                        parcels, ZERO_BLANK),
+                    formulaCell(
+                        `SUMIFS(${sh}$D$2:$D$${last},${sh}$G$2:$G$${last},"YES")`,
+                        pickup, ZERO_BLANK),
+                    formulaCell(
+                        `SUMIFS(${sh}$D$2:$D$${last},${sh}$F$2:$F$${last},"YES")`,
+                        redelivery, ZERO_BLANK),
+                    formulaCell(
+                        `B${r}+C${r}+D${r}`,
+                        parcels + pickup + redelivery, ZERO_BLANK),
+                    formulaCell(
+                        `COUNTIF(${sh}$H$2:$H$${last},"NO")`,
+                        notOnMap, ZERO_BLANK),
+                    formulaCell(
+                        `B${r}+D${r}`,
+                        parcels + redelivery, ZERO_BLANK)
+                ]);
+            }
+        );
+
+        const lastSummaryRow = routeSheets.length + 1;
+
+        summaryAoa.push([
+            "total",
+            formulaCell(`SUM(B2:B${lastSummaryRow})`, sums.parcels, ZERO_BLANK),
+            formulaCell(`SUM(C2:C${lastSummaryRow})`, sums.pickup, ZERO_BLANK),
+            formulaCell(`SUM(D2:D${lastSummaryRow})`, sums.redelivery, ZERO_BLANK),
+            formulaCell(`SUM(E2:E${lastSummaryRow})`, sums.total, ZERO_BLANK),
+            formulaCell(`SUM(F2:F${lastSummaryRow})`, sums.notOnMap, ZERO_BLANK),
+            formulaCell(`SUM(G2:G${lastSummaryRow})+D${lastSummaryRow + 1}`, sums.real + sums.redelivery, ZERO_BLANK)
+        ]);
 
         XLSX.utils.book_append_sheet(
             workbook,
-            summarySheet,
+            XLSX.utils.aoa_to_sheet(summaryAoa),
             "Summary"
         );
 
@@ -2243,73 +2298,48 @@ function exportRoutes() {
             );
         }
 
-        uniqueRoutes.forEach(
-            route => {
+        // ======================================
+        // ROUTE SHEETS - stops + a Total row (formula) at the bottom
+        // ======================================
 
-                const routeStops =
-                    stopsData.filter(
-                        x => x.route === route
-                    );
+        routeSheets.forEach(
+            ({ route, routeStops }) => {
 
-                if (
-                    routeStops.length === 0
-                ) {
-                    return;
-                }
+                const rows = [[
+                    "Stop_Number", "Postcode", "Route", "Parcels",
+                    "JDW_Numbers", "Redelivery", "Pickup", "On_Map"
+                ]];
 
-                const exportData =
-                    routeStops.map(
-                        (
-                            stop,
-                            index
-                        ) => ({
+                routeStops.forEach(
+                    (stop, index) => {
+                        rows.push([
+                            index + 1,
+                            stop.postcode,
+                            stop.route,
+                            stop.parcels || 0,
+                            Array.isArray(stop.jdwNumbers)
+                                ? stop.jdwNumbers.join(", ")
+                                : "",
+                            stop.redelivery ? "YES" : "NO",
+                            stop.pickup ? "YES" : "NO",
+                            (stop.lat && stop.lng) ? "YES" : "NO"
+                        ]);
+                    }
+                );
 
-    Stop_Number:
-        index + 1,
+                const last = routeStops.length + 1;
 
-    Postcode:
-        stop.postcode,
-
-    Route:
-        stop.route,
-
-    Parcels:
-        stop.parcels || 0,
-
-    JDW_Numbers:
-        Array.isArray(
-            stop.jdwNumbers
-        )
-
-        ? stop.jdwNumbers.join(", ")
-
-        : "",
-
-        Redelivery:
-        stop.redelivery
-            ? "YES"
-            : "NO",
-
-    Pickup:
-        stop.pickup
-            ? "YES"
-            : "NO",
-
-    On_Map:
-        (stop.lat && stop.lng)
-            ? "YES"
-            : "NO"
-})
-                    );
-
-                const worksheet =
-                    XLSX.utils.json_to_sheet(
-                        exportData
-                    );
+                rows.push([
+                    null, null, "Total",
+                    formulaCell(
+                        `SUM(D2:D${last})`,
+                        routeStops.reduce((sum, s) => sum + (s.parcels || 0), 0)
+                    )
+                ]);
 
                 XLSX.utils.book_append_sheet(
                     workbook,
-                    worksheet,
+                    XLSX.utils.aoa_to_sheet(rows),
                     route
                 );
             }
