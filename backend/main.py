@@ -279,6 +279,25 @@ def _compact(postcode: str) -> str:
     return postcode.replace(" ", "").upper()
 
 
+def _load_manual_postcodes():
+    """Postcodes missing from postcodes.io, kept in data/manual_postcodes.json."""
+    path = os.path.join(BASE_DIR, "data", "manual_postcodes.json")
+    manual = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for code, value in json.load(f).items():
+                if isinstance(value, dict) and "lat" in value and "lng" in value:
+                    manual[_compact(code)] = (float(value["lat"]), float(value["lng"]))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"manual_postcodes.json ignored: {e}")
+    return manual
+
+
+MANUAL_POSTCODES = _load_manual_postcodes()
+
+
 def geocode_postcodes(postcodes):
     """
     Looks up every postcode ONCE (bulk request, 100 at a time).
@@ -333,7 +352,30 @@ def geocode_postcodes(postcodes):
             except Exception as e:
                 print(e)
 
+    # Postcodes postcodes.io does not know: use the manual list (if present there)
+    for p in unique:
+        key = _compact(p)
+        if key not in found and key in MANUAL_POSTCODES:
+            found[key] = MANUAL_POSTCODES[key]
+
     return found
+
+
+# =====================================
+# GEOCODE ONE POSTCODE (used by "Add Stop")
+# =====================================
+
+@app.get("/geocode/{postcode}")
+def geocode_one(postcode: str, authorization: str = Header(None)):
+    _require_user(authorization)
+
+    normalized = normalize_postcode(postcode)
+    coords = geocode_postcodes([normalized]).get(_compact(normalized))
+
+    if not coords:
+        raise HTTPException(404, "Postcode not found")
+
+    return {"postcode": normalized, "lat": coords[0], "lng": coords[1]}
 
 
 # =====================================
