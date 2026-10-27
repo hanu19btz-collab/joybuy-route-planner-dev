@@ -325,6 +325,52 @@ uploadBtn.addEventListener(
 // ADD STOP
 // ======================================
 
+// Backend first (it also knows postcodes missing from postcodes.io, e.g. LE1 5XA);
+// if the backend cannot be reached, ask postcodes.io directly.
+async function geocodeSinglePostcode(postcode) {
+
+    const clean = postcode.replace(/\s/g, '');
+
+    try {
+
+        const r =
+            await fetch(
+                `${BACKEND}/geocode/${encodeURIComponent(clean)}`,
+                { headers: await authHeaders() }
+            );
+
+        if (r.ok) {
+
+            const d = await r.json();
+
+            return { latitude: d.lat, longitude: d.lng };
+        }
+
+        if (r.status === 404) {
+            return null;
+        }
+
+    } catch (e) {
+        // backend not reachable - try postcodes.io below
+    }
+
+    try {
+
+        const r =
+            await fetch(
+                `https://api.postcodes.io/postcodes/${clean}`
+            );
+
+        const d = await r.json();
+
+        return d.status === 200 ? d.result : null;
+
+    } catch (e) {
+
+        return null;
+    }
+}
+
 addStopBtn.addEventListener(
     'click',
     async () => {
@@ -417,17 +463,12 @@ addStopBtn.addEventListener(
 
         try {
 
-            const response =
-                await fetch(
-                    `https://api.postcodes.io/postcodes/${postcode.replace(/\s/g, '')}`
+            const result =
+                await geocodeSinglePostcode(
+                    postcode
                 );
 
-            const data =
-                await response.json();
-
-            if (
-                data.status !== 200
-            ) {
+            if (!result) {
 
                 alert(
                     "Invalid postcode"
@@ -435,9 +476,6 @@ addStopBtn.addEventListener(
 
                 return;
             }
-
-            const result =
-                data.result;
 
             const newStop = {
 
@@ -561,7 +599,7 @@ function clearMap() {
 // overlapping renders do not flood /route-geometry.
 let renderGeneration = 0;
 
-async function renderMap() {
+async function renderMap(keepView = false) {
 
     const myGeneration = ++renderGeneration;
 
@@ -747,6 +785,39 @@ marker.routeName =
                 createPopup(stop.id)
             );
 
+            // Ctrl+click (Cmd+click on Mac) adds / removes this drop from the selection.
+            // The popup opens on every click, so for a Ctrl+click turn its auto-pan off
+            // (otherwise the map slides around while the person is selecting).
+            marker.on(
+                'mousedown',
+                (e) => {
+
+                    const ev = e.originalEvent;
+                    const popup = marker.getPopup();
+
+                    if (popup) {
+                        popup.options.autoPan =
+                            !(ev && (ev.ctrlKey || ev.metaKey));
+                    }
+                }
+            );
+
+            marker.on(
+                'click',
+                (e) => {
+
+                    const ev = e.originalEvent;
+
+                    if (!ev || !(ev.ctrlKey || ev.metaKey)) {
+                        return;
+                    }
+
+                    marker.closePopup();
+
+                    toggleStopSelection(stop.id);
+                }
+            );
+
             marker.on(
                 'popupopen',
                 () => {
@@ -807,7 +878,7 @@ marker.routeName =
 
     if (myGeneration !== renderGeneration) return;
 
-    if (bounds.length > 0) {
+    if (bounds.length > 0 && !keepView) {
 
         map.fitBounds(bounds);
     }
@@ -1530,6 +1601,25 @@ Parcels:
                 Move Stop
             </button>
 
+            <button
+                onclick="
+                    deleteStop('${stopId}')
+                "
+                style="
+                    width:100%;
+                    margin-top:8px;
+                    padding:10px;
+                    background:#dc2626;
+                    color:white;
+                    border:none;
+                    border-radius:8px;
+                    font-weight:bold;
+                    cursor:pointer;
+                "
+            >
+                Delete Stop
+            </button>
+
         </div>
     `;
 }
@@ -1622,6 +1712,77 @@ function(stopId) {
 // ======================================
 // MOVE STOP
 // ======================================
+
+// ======================================
+// DELETE STOP (asks to type DELETE before removing anything)
+// ======================================
+
+window.deleteStop =
+async function(stopId) {
+
+    const stop =
+        stopsData.find(
+            x => x.id === stopId
+        );
+
+    if (!stop) {
+        return;
+    }
+
+    const answer =
+        prompt(
+            `Delete ${stop.postcode} from ${stop.route} (${stop.parcels || 0} parcels)?\n\n` +
+            `This removes the drop from the route.\n` +
+            `Type DELETE to confirm:`
+        );
+
+    if (answer === null) {
+        return;
+    }
+
+    if (answer.trim().toUpperCase() !== "DELETE") {
+
+        alert(
+            "Stop NOT deleted. You have to type DELETE to confirm."
+        );
+
+        return;
+    }
+
+    const route = stop.route;
+
+    stopsData =
+        stopsData.filter(
+            x => x.id !== stopId
+        );
+
+    selectedStops =
+        selectedStops.filter(
+            id => id !== stopId
+        );
+
+    // a deleted drop must not stay in the Manual_Moves sheet
+    delete movedStops[stop.postcode];
+
+    delete routeCache[route];
+
+    if (routeLayers[route]) {
+
+        map.removeLayer(
+            routeLayers[route]
+        );
+
+        delete routeLayers[route];
+    }
+
+    map.closePopup();
+
+    updateMultiSelectBar();
+
+    await renderMap(true);
+
+    renderSidebar();
+};
 
 window.moveStopToPosition =
 async function(stopId) {
@@ -1819,6 +1980,14 @@ function formatMinutes(totalMin) {
 // SIDEBAR
 // ======================================
 
+// Parcels + Redelivery of a route (stops marked Pickup are not counted,
+// same rule as the Total row in the Excel export)
+function getRouteParcels(route) {
+    return stopsData
+        .filter(s => s.route === route && !s.pickup)
+        .reduce((sum, s) => sum + (s.parcels || 0), 0);
+}
+
 function renderSidebar() {
 
     const routeStats =
@@ -1892,6 +2061,10 @@ function renderSidebar() {
 
                 <div>
                     Stops: ${count}
+                </div>
+
+                <div>
+                    Parcels: <b>${getRouteParcels(route)}</b>
                 </div>
 
                 <div>
@@ -3000,7 +3173,7 @@ getSidebarRoutes()
             `;
         }
     );
-renderMap();
+renderMap(true);
 // Șterge dreptunghiul după selecție
 setTimeout(
     () => {
@@ -3022,7 +3195,81 @@ setTimeout(
 );
 }
 );
-   window.clearSelection =
+   // The multi-select bar sits between the header and the map. Shrink the map
+// area by the bar height while it is visible, otherwise the page becomes taller
+// than the window and the browser scrolls it when a marker is clicked
+// (the map jumps and the next click is lost).
+(function keepLayoutInsideWindow() {
+
+    const bar = document.getElementById("multiSelectBar");
+    const layout = document.querySelector(".main-layout");
+
+    if (!bar || !layout || typeof ResizeObserver === "undefined") {
+        return;
+    }
+
+    new ResizeObserver(() => {
+
+        layout.style.height =
+            `calc(100vh - ${70 + bar.offsetHeight}px)`;
+
+        map.invalidateSize();
+
+    }).observe(bar);
+})();
+
+// Shows / hides the multi-select bar and keeps its route list up to date
+function updateMultiSelectBar() {
+
+    const bar =
+        document.getElementById("multiSelectBar");
+
+    if (selectedStops.length === 0) {
+        bar.style.display = "none";
+        return;
+    }
+
+    bar.style.display = "flex";
+
+    document.getElementById("selectedCount").innerText =
+        `Selected: ${selectedStops.length}`;
+
+    const moveToRoute =
+        document.getElementById("moveToRoute");
+
+    const previous = moveToRoute.value;
+
+    moveToRoute.innerHTML = "";
+
+    getSidebarRoutes().forEach(
+        route => {
+            moveToRoute.innerHTML +=
+                `<option value="${route}">${route}</option>`;
+        }
+    );
+
+    if (previous) {
+        moveToRoute.value = previous;
+    }
+}
+
+function toggleStopSelection(stopId) {
+
+    const index = selectedStops.indexOf(stopId);
+
+    if (index >= 0) {
+        selectedStops.splice(index, 1);
+    } else {
+        selectedStops.push(stopId);
+    }
+
+    updateMultiSelectBar();
+
+    // keep the current zoom / position of the map
+    renderMap(true);
+}
+
+window.clearSelection =
 function() {
 
     selectedStops = [];
@@ -3048,7 +3295,7 @@ function() {
     ).style.display =
         "none";
 
-    renderMap();
+    renderMap(true);
 }
 window.moveSelectedStops =
 async function() {
