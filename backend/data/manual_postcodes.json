@@ -1,0 +1,4 @@
+{
+  "_comment": "Postcodes that exist in real life but are missing from postcodes.io. Used ONLY when postcodes.io has no result. Format: \"POSTCODE\": {\"lat\": ..., \"lng\": ...}",
+  "LE1 5XA": {"lat": 52.631351, "lng": -1.136382, "note": "next to LE1 5XU (ONS 52.631271, -1.136382), ~9 m north so both markers stay visible"}
+}
