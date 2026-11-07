@@ -3154,7 +3154,7 @@ document.getElementById(
 document.getElementById(
     "selectedCount"
 ).innerText =
-    `Selected: ${selectedStops.length}`;
+    getSelectionLabel();
 const moveToRoute =
     document.getElementById(
         "moveToRoute"
@@ -3218,6 +3218,18 @@ setTimeout(
     }).observe(bar);
 })();
 
+// "Selected: 29 drops - 87 parcels" (pickup stops are not counted as parcels,
+// same rule as the route cards and the Excel Total)
+function getSelectionLabel() {
+
+    const parcels =
+        stopsData
+            .filter(s => selectedStops.includes(s.id) && !s.pickup)
+            .reduce((sum, s) => sum + (s.parcels || 0), 0);
+
+    return `Selected: ${selectedStops.length} drops - ${parcels} parcels`;
+}
+
 // Shows / hides the multi-select bar and keeps its route list up to date
 function updateMultiSelectBar() {
 
@@ -3232,7 +3244,7 @@ function updateMultiSelectBar() {
     bar.style.display = "flex";
 
     document.getElementById("selectedCount").innerText =
-        `Selected: ${selectedStops.length}`;
+        getSelectionLabel();
 
     const moveToRoute =
         document.getElementById("moveToRoute");
