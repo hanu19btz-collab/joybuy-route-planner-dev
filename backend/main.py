@@ -108,7 +108,15 @@ def _verify_user(authorization):
     return user_id
 
 
+# TEMPORARY SWITCH: set the environment variable LOGIN_REQUIRED=false on Render
+# to let the app work without a login (e.g. while Supabase is restricted).
+# Remove the variable (or set it to true) to turn the login check back on.
+LOGIN_REQUIRED = os.environ.get("LOGIN_REQUIRED", "true").strip().lower() != "false"
+
+
 def _require_user(authorization):
+    if not LOGIN_REQUIRED:
+        return
     if not _verify_user(authorization):
         raise HTTPException(401, "Login required")
 
