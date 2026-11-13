@@ -5,7 +5,19 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let currentProfile = null;
 
+// TEMPORARY: true = open the app without logging in (Supabase login is not used).
+// Set it back to false to turn the login screen back on.
+// The backend must also have LOGIN_REQUIRED=false on Render while this is true.
+const LOGIN_BYPASS = true;
+
 async function initAuth() {
+    if (LOGIN_BYPASS) {
+        document.getElementById('userLabel').textContent = 'no login';
+        document.getElementById('adminPanelBtn').style.display = 'none';
+        _showApp();
+        return;
+    }
+
     const { data: { session } } = await _supabase.auth.getSession();
     if (session) {
         currentUser = session.user;
@@ -89,13 +101,26 @@ window.saveSessionCloud = async function (name, depotConfigId, stops, movedStops
     if (error) throw error;
 };
 
+// List of saved sessions: only id / name / date / depot. The stops of every session
+// are big and used to be downloaded on every page load (Supabase egress).
 window.getSessionsCloud = async function () {
     const { data, error } = await _supabase
         .from('sessions')
-        .select('*')
+        .select('id, name, created_at, depot_id')
         .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
+};
+
+// One full session (stops, moved stops ...), downloaded only when it is loaded
+window.getSessionCloud = async function (sessionId) {
+    const { data, error } = await _supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+    if (error) throw error;
+    return data;
 };
 
 window.deleteSessionCloud = async function (sessionId) {
@@ -135,7 +160,6 @@ async function _renderAdminSessions(filter) {
                 <div style="font-size:12px;color:#6b7280;margin-top:3px;">
                     <span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${s.depot_id}</span>
                     &nbsp;${new Date(s.created_at).toLocaleString()}
-                    &nbsp;&middot; ${Array.isArray(s.stops) ? s.stops.length : 0} stops
                 </div>
                 <button onclick="adminDeleteSession('${s.id}')"
                     style="margin-top:8px;padding:4px 12px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">
