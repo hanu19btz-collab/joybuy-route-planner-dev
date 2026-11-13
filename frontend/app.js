@@ -2734,8 +2734,7 @@ async function renderSavedSessions() {
 window.loadSession = async function(sessionId) {
 
     try {
-        const sessions = await getSessionsCloud();
-        const session = sessions.find(x => x.id === sessionId);
+        const session = await getSessionCloud(sessionId);
         if (!session) return;
 
         currentDepot = DEPOTS[session.depot_config];
