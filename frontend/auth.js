@@ -8,7 +8,7 @@ let currentProfile = null;
 // TEMPORARY: true = open the app without logging in (Supabase login is not used).
 // Set it back to false to turn the login screen back on.
 // The backend must also have LOGIN_REQUIRED=false on Render while this is true.
-const LOGIN_BYPASS = true;
+const LOGIN_BYPASS = false;
 
 async function initAuth() {
     if (LOGIN_BYPASS) {
